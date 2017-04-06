@@ -1,0 +1,35 @@
+version: '2.1'
+services:
+  shell:
+    image: amaysim/rancher-cli:0.2.0
+    command: bash
+    volumes:
+      - .:/opt/app
+    working_dir: /opt/app
+
+  # deploy is an example of deploying a docker image to rancher
+  deploy:
+    image: amaysim/rancher-cli:0.2.0
+    environment:
+      - RANCHER_URL=${RANCHER_URL}
+      - RANCHER_ACCESS_KEY=${RANCHER_ACCESS_KEY}
+      - RANCHER_SECRET_KEY=${RANCHER_SECRET_KEY}
+      - RANCHER_STACK=${RANCHER_STACK}
+      - RANCHER_SERVICE=${RANCHER_SERVICE}
+      - DOCKER_COMPOSE=${DOCKER_COMPOSE}
+      - RANCHER_COMPOSE=${RANCHER_COMPOSE}
+      # HEALTHCHECKURL is for rancher_check_if_app_is_up.sh
+      - HEALTHCHECKURL=${HEALTHCHECKURL}
+      # SUMO_HTTP_TOKEN is not the url but just the token.
+      - SUMO_HTTP_TOKEN=${SUMO_HTTP_TOKEN}
+    volumes:
+      - .:/opt/app
+    working_dir: /opt/app
+    command: >
+      rancher_deploy.sh -e ${RANCHER_ENVIRONMENT} \
+      -s $RANCHER_STACK \
+      -c $RANCHER_SERVICE \
+      -d $DOCKER_COMPOSE \
+      -n $RANCHER_COMPOSE \
+      -w 300; \
+      timeout 100 rancher_check_if_app_is_ip.sh

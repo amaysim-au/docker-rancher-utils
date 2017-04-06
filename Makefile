@@ -6,7 +6,7 @@ build:
 	docker build -t $(IMAGE_NAME) .
 
 shell:
-	docker run --rm -it -v $(PWD):/opt/app $(IMAGE_NAME) bash
+	docker-compose run --rm shell
 
 gitTag:
 	-git tag -d $(TAG)
