@@ -7,4 +7,4 @@ deploy:
 		-d $(DOCKER_COMPOSE) \
 		-n $(RANCHER_COMPOSE) \
 		-w 300
-	timeout $(TIMOUT) /scripts/rancher_check_if_app_is_ip.sh
+	timeout $(TIMOUT) /scripts/rancher_check_if_app_is_up.sh
