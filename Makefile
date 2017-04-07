@@ -1,6 +1,6 @@
-RANCHER_CLI_VERSION = 0.2.0
-IMAGE_NAME ?= amaysim/rancher-cli:$(RANCHER_CLI_VERSION)
-TAG = v$(RANCHER_CLI_VERSION)
+VERSION = 1.0.0
+IMAGE_NAME ?= amaysim/rancher-utils:$(VERSION)
+TAG = v$(VERSION)
 
 build:
 	docker build -t $(IMAGE_NAME) .

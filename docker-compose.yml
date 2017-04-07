@@ -1,7 +1,7 @@
 version: '2.1'
 services:
   shell:
-    image: amaysim/rancher-cli:0.2.0
+    image: amaysim/rancher-utils:1.0.0
     command: shell
     env_file: .env
     volumes:
@@ -11,7 +11,7 @@ services:
 
   # deploy is an example of deploying a docker image to rancher
   deploy:
-    image: amaysim/rancher-cli:0.2.0
+    image: amaysim/rancher-utils:1.0.0
     environment:
       - RANCHER_URL=${RANCHER_URL}
       - RANCHER_ACCESS_KEY=${RANCHER_ACCESS_KEY}
@@ -34,4 +34,4 @@ networks:
     driver: bridge
     ipam:
       config:
-      - subnet: ${SUBNET_IP}
+      - subnet: ${DOCKER_COMPOSE_IP_RANGE}
