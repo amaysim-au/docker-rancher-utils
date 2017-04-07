@@ -7,5 +7,5 @@ RUN apk --no-cache update && \
     rm -rf /var/cache/apk/*
 RUN wget -qO- $RANCHER_CLI_URL | tar xz && \
 	mv ./rancher-v0.2.0/rancher /usr/local/bin/rancher
-ADD scripts/* /usr/local/bin/
+ADD scripts /scripts
 CMD ["rancher", "--version"]

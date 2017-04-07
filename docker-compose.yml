@@ -2,10 +2,12 @@ version: '2.1'
 services:
   shell:
     image: amaysim/rancher-cli:0.2.0
-    command: bash
+    command: shell
+    env_file: .env
     volumes:
       - .:/opt/app
     working_dir: /opt/app
+    command: bash
 
   # deploy is an example of deploying a docker image to rancher
   deploy:
@@ -25,11 +27,11 @@ services:
     volumes:
       - .:/opt/app
     working_dir: /opt/app
-    command: >
-      rancher_deploy.sh -e ${RANCHER_ENVIRONMENT} \
-      -s $RANCHER_STACK \
-      -c $RANCHER_SERVICE \
-      -d $DOCKER_COMPOSE \
-      -n $RANCHER_COMPOSE \
-      -w 300; \
-      timeout 100 rancher_check_if_app_is_ip.sh
+    command: make -f /scripts/Makefile deploy
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+      - subnet: ${SUBNET_IP}
