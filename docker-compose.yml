@@ -12,19 +12,7 @@ services:
   # deploy is an example of deploying a docker image to rancher
   deploy:
     image: amaysim/rancher-utils:1.0.0
-    environment:
-      - RANCHER_URL=${RANCHER_URL}
-      - RANCHER_ACCESS_KEY=${RANCHER_ACCESS_KEY}
-      - RANCHER_SECRET_KEY=${RANCHER_SECRET_KEY}
-      - RANCHER_STACK=${RANCHER_STACK}
-      - RANCHER_ENVIRONMENT=${RANCHER_ENVIRONMENT}
-      - RANCHER_SERVICE=${RANCHER_SERVICE}
-      - DOCKER_COMPOSE=${DOCKER_COMPOSE}
-      - RANCHER_COMPOSE=${RANCHER_COMPOSE}
-      # HEALTHCHECKURL is for rancher_check_if_app_is_up.sh
-      - HEALTHCHECKURL=${HEALTHCHECKURL}
-      # SUMO_HTTP_TOKEN is not the url but just the token.
-      - SUMO_HTTP_TOKEN=${SUMO_HTTP_TOKEN}
+    env_file: .env
     volumes:
       - .:/opt/app
     working_dir: /opt/app
