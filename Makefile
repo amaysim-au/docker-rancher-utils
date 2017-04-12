@@ -18,4 +18,4 @@ gitTag:
 # Example of how to deploy using docker compose
 deploy:
 	docker-compose down
-	docker-compose run --rm deploy
+	docker-compose run --rm rancher make -f /scripts/Makefile deploy

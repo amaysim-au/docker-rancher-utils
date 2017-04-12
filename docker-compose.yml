@@ -9,14 +9,12 @@ services:
     working_dir: /opt/app
     command: bash
 
-  # deploy is an example of deploying a docker image to rancher
-  deploy:
+  rancher:
     image: amaysim/rancher-utils:1.0.0
     env_file: .env
     volumes:
       - .:/opt/app
     working_dir: /opt/app
-    command: make -f /scripts/Makefile deploy
 
 networks:
   default:
