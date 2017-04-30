@@ -54,10 +54,21 @@ while getopts ':e:s:c:r:w:d:n:h' option; do
 done
 shift $((OPTIND - 1))
 
+function rename_service() {
+    id = `$rancher_command --env $env inspect --format '{{ .id}}' $stack`
+    echo "renaming $stack with id: $id"
+    # curl -u "${RANCHER_ACCESS_KEY}:${RANCHER_SECRET_KEY}" \
+    #     -X PUT \
+    #     -H 'Content-Type: application/json' \
+    #     -d '{
+    #         "name": "$blue"
+    #     }' 'http://${RANCHER_URL}/v2-beta/projects/${PROJECT_ID}/${stacks}/${ID}'
+}
+
 function upgrade_the_service(){
     echo  "Upgrading $service in $env"
-    $rancher_command --environment $env --debug --wait --wait-timeout $WAIT_TIMEOUT up --batch-size 1 -s $stack -f $docker_compose_file --rancher-file $rancher_compose_file --upgrade -p -d
-    monitor_transition
+    $rancher_command --environment $env --debug --wait --wait-timeout $WAIT_TIMEOUT --wait-state "upgraded" up --batch-size 1 -s $stack -f $docker_compose_file --rancher-file $rancher_compose_file --upgrade -p -d
+    # monitor_transition
     state_after_upgrade=`$rancher_command --env $env inspect --format '{{ .state}}' $stack/$service | head -n1`
     echo  "The state of service after upgrade is $state_after_upgrade"
     case $state_after_upgrade in
