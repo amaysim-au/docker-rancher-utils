@@ -14,8 +14,8 @@ where:
 -w  set the wait time in seconds (default: 120)"
 
 env=Dev
-stack=QA
-service=poseidon-app
+stack=test-stack
+service=test-service
 rancher_command=rancher
 docker_compose_file=deployment/docker-compose.yml
 rancher_compose_file=deployment/rancher-compose.yml
@@ -55,7 +55,7 @@ done
 shift $((OPTIND - 1))
 
 function rename_service() {
-    id = `$rancher_command --env $env inspect --format '{{ .id}}' $stack`
+    id = `$rancher_command --env $env inspect --format '{{ .id}}' --type stack $stack`
     echo "renaming $stack with id: $id"
     # curl -u "${RANCHER_ACCESS_KEY}:${RANCHER_SECRET_KEY}" \
     #     -X PUT \
@@ -65,21 +65,23 @@ function rename_service() {
     #     }' 'http://${RANCHER_URL}/v2-beta/projects/${PROJECT_ID}/${stacks}/${ID}'
 }
 
-function upgrade_the_service(){
-    echo  "Upgrading $service in $env"
-    $rancher_command --environment $env --debug --wait --wait-timeout $WAIT_TIMEOUT --wait-state "upgraded" up --batch-size 1 -s $stack -f $docker_compose_file --rancher-file $rancher_compose_file --upgrade -p -d
+function upgrade_stack(){
+    echo  "Upgrading $stack in $env"
+    $rancher_command --environment $env --debug --wait --wait-timeout $WAIT_TIMEOUT --wait-state "upgraded" \
+        up \
+        --batch-size 1 -s $stack -f $docker_compose_file --rancher-file $rancher_compose_file --upgrade -p -d
     # monitor_transition
-    state_after_upgrade=`$rancher_command --env $env inspect --format '{{ .state}}' $stack/$service | head -n1`
-    echo  "The state of service after upgrade is $state_after_upgrade"
-    case $state_after_upgrade in
-        "active")  exit 0
-                   ;;
-        "upgraded") finish_upgrade
-                   ;;
-        *)  echo "Service isnt responding. Exiting."
-            exit 1
-            ;;
-    esac
+    # state_after_upgrade=`$rancher_command --env $env inspect --format '{{ .state}}' --type stack $stack | head -n1`
+    # echo  "The state of service after upgrade is $state_after_upgrade"
+    # case $state_after_upgrade in
+    #     "active")  exit 0
+    #                ;;
+    #     "upgraded") finish_upgrade
+    #                ;;
+    #     *)  echo "Service isnt responding. Exiting."
+    #         exit 1
+    #         ;;
+    # esac
 }
 
 function finish_upgrade(){
@@ -104,8 +106,8 @@ function roll_back(){
     exit 1
 }
 
-function exit_if_service_currently_unhealthy() {
-    health_status=`$rancher_command --environment $env inspect --format '{{ .healthState}}' $stack/$service | head -n1`
+function check_stack_health() {
+    health_status=`$rancher_command --environment $env inspect --format '{{ .healthState}}' --type stack $stack | head -n1`
     echo  "The current health status of service is $health_status"
     if [[ "$health_status" != "healthy" ]]
         then
@@ -162,10 +164,12 @@ function monitor_transition() {
     echo "Transitioning status is now $is_transitioning"
 }
 
-is_sevice_exists=`$rancher_command --environment $env inspect $stack/$service | head -n1`
-if [[ $is_sevice_exists != *"Not found"* ]]
+is_stack_exists=`$rancher_command --env $env inspect --type stack $stack | head -n1`
+echo "stack exists: $is_stack_exists\n"
+if [[ $is_stack_exists != *"Not found"* ]]
 then
-    exit_if_service_currently_unhealthy
+    check_stack_health
     confirm_upgrade_if_previous_upgrade_pending
 fi
-upgrade_the_service
+upgrade_stack
+

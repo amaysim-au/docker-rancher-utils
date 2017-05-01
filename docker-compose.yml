@@ -1,7 +1,7 @@
 version: '2.1'
 services:
   shell:
-    image: amaysim/rancher-utils:1.0.0
+    build: .
     command: shell
     env_file: .env
     volumes:
