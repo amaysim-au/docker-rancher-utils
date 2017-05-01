@@ -54,8 +54,8 @@ while getopts ':e:s:c:r:w:d:n:h' option; do
 done
 shift $((OPTIND - 1))
 
-function rename_service() {
-    id = `$rancher_command --env $env inspect --format '{{ .id}}' --type stack $stack`
+function rename_stack() {
+    id=`$rancher_command --env $env inspect --format '{{ .id}}' --type stack $stack`
     echo "renaming $stack with id: $id"
     # curl -u "${RANCHER_ACCESS_KEY}:${RANCHER_SECRET_KEY}" \
     #     -X PUT \
@@ -67,25 +67,33 @@ function rename_service() {
 
 function upgrade_stack(){
     echo  "Upgrading $stack in $env"
-    $rancher_command --environment $env --debug --wait --wait-timeout $WAIT_TIMEOUT --wait-state "upgraded" \
+    $rancher_command \
+        --env $env \
+        --debug \
+        --wait --wait-timeout $WAIT_TIMEOUT \
+        --wait-state "upgraded" \
         up \
-        --batch-size 1 -s $stack -f $docker_compose_file --rancher-file $rancher_compose_file --upgrade -p -d
-    # monitor_transition
-    # state_after_upgrade=`$rancher_command --env $env inspect --format '{{ .state}}' --type stack $stack | head -n1`
-    # echo  "The state of service after upgrade is $state_after_upgrade"
-    # case $state_after_upgrade in
-    #     "active")  exit 0
-    #                ;;
-    #     "upgraded") finish_upgrade
-    #                ;;
-    #     *)  echo "Service isnt responding. Exiting."
-    #         exit 1
-    #         ;;
-    # esac
+        --batch-size 1 \
+        --stack $stack \
+        --file $docker_compose_file \
+        --rancher-file $rancher_compose_file \
+        --upgrade -p -d
+
+    state_after_upgrade=`$rancher_command --env $env inspect --format '{{ .state}}' --type stack $stack | head -n1`
+    echo  "The state of service after upgrade is $state_after_upgrade"
+    case $state_after_upgrade in
+        "active")  exit 0
+                   ;;
+        "upgraded") finish_upgrade
+                   ;;
+        *)  echo "Service isnt responding. Exiting."
+            exit 1
+            ;;
+    esac
 }
 
 function finish_upgrade(){
-    health_status=`$rancher_command --environment $env inspect --format '{{ .healthState}}' $stack/$service | head -n1`
+    health_status=`$rancher_command --environment $env inspect --format '{{ .healthState}}' --type $stack/$service | head -n1`
     if [[ $health_status == "healthy" ]]
         then
             echo "Upgraded service successfully. Confirming Upgrade."
@@ -117,7 +125,7 @@ function check_stack_health() {
 }
 
 function confirm_upgrade_if_previous_upgrade_pending() {
-    service_status=`$rancher_command --environment $env inspect --format '{{ .state}}' $stack/$service | head -n1`
+    service_status=`$rancher_command --environment $env inspect --format '{{ .state}}' --type service $stack/$service | head -n1`
     echo  "The status of previous service upgrade is $service_status"
     if [[ "$service_status" == "upgraded" ]]
     then
@@ -130,7 +138,7 @@ function confirm_upgrade_if_previous_upgrade_pending() {
 function wait_for_service_to_have_status() {
     status_type=$1
     status_tag=$2
-    status=`$rancher_command --environment $env inspect --format '{{ '"$status_tag"' }}' $stack/$service | head -n1`
+    status=`$rancher_command --environment $env inspect --format '{{ '"$status_tag"' }}' --type service $stack/$service | head -n1`
     echo "Waiting for service to be $status_type. Current status: $status"
     COUNT=0
     while [ $status != $status_type ]; do
@@ -146,30 +154,13 @@ function wait_for_service_to_have_status() {
     echo "Service is now $status."
 }
 
-function monitor_transition() {
-    is_transitioning=`$rancher_command --environment $env inspect --format '{{ .transitioning }}' $stack/$service | head -n1`
-    echo "Is service transtioning state: $is_transitioning"
-    COUNT=0
-    while [ $is_transitioning != "no" ]; do
-        if [ $COUNT -gt $NUMBER_OF_TIMES_TO_LOOP ]; then
-            echo "Give up waiting for becoming steady, Starting rollback"
-            roll_back
-        fi
-        COUNT=$[$COUNT + 1]
-        echo "Waiting for transition status to be no. Previous status: $is_transitioning"
-        sleep 10
-        is_transitioning=`$rancher_command --environment $env inspect --format '{{ .transitioning }}' $stack/$service | head -n1`
-        echo "Current status: $is_transitioning"
-    done
-    echo "Transitioning status is now $is_transitioning"
-}
-
 is_stack_exists=`$rancher_command --env $env inspect --type stack $stack | head -n1`
 echo "stack exists: $is_stack_exists\n"
 if [[ $is_stack_exists != *"Not found"* ]]
 then
     check_stack_health
     confirm_upgrade_if_previous_upgrade_pending
+    rename_stack
 fi
 upgrade_stack
 
