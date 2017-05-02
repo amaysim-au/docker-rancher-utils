@@ -124,10 +124,10 @@ function roll_back(){
 
 function check_stack_health() {
     health_status=`$rancher_command --environment $env inspect --format '{{ .healthState}}' --type stack $stack | head -n1`
-    echo  "The current health status of service is $health_status"
+    echo  "Current health status of stack: $health_status"
     if [[ "$health_status" != "healthy" ]]
         then
-        echo  "The Service is not in a healthy state. Exiting."
+        echo  "Stack is not in a healthy state. Exiting."
         exit 1
     fi
 }
@@ -162,14 +162,14 @@ function wait_for_service_to_have_status() {
     echo "Service is now $status."
 }
 
-is_stack_exists=`$rancher_command --env $env inspect --type stack $stack | head -n1`
-echo "stack exists: $is_stack_exists"
-echo ""
-if [[ $is_stack_exists != *"Not found"* ]]
-then
+stack_exists=`$rancher_command --env $env inspect --type stack $stack | head -n1`
+echo "stack exists: $stack_exists"
+if [[ $stack_exists == "" ]]; then
+	echo "empty result - not authorized to call Rancher API"
+	exit 1
+elif [[ $stack_exists != *"Not found"* ]]; then
     check_stack_health
     confirm_upgrade_if_previous_upgrade_pending
-    rename_stack
 fi
 upgrade_stack
 
