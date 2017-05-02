@@ -55,14 +55,22 @@ done
 shift $((OPTIND - 1))
 
 function rename_stack() {
-    id=`$rancher_command --env $env inspect --format '{{ .id}}' --type stack $stack`
-    echo "renaming $stack with id: $id"
-    # curl -u "${RANCHER_ACCESS_KEY}:${RANCHER_SECRET_KEY}" \
-    #     -X PUT \
-    #     -H 'Content-Type: application/json' \
-    #     -d '{
-    #         "name": "$blue"
-    #     }' 'http://${RANCHER_URL}/v2-beta/projects/${PROJECT_ID}/${stacks}/${ID}'
+    projectId=`$rancher_command --env $env inspect --format '{{ .id}}' --type project $env`
+    stackId=`$rancher_command --env $env inspect --format '{{ .id}}' --type stack $stack`
+    echo "renaming stack $stack with id: $projectId in env $env with Id: $stackId"
+
+    rename_status=$(curl -o /dev/null -s -w "%{http_code}\n" -u "$RANCHER_ACCESS_KEY:$RANCHER_SECRET_KEY" \
+        -X PUT \
+        -H "Content-Type: application/json" \
+        -d "{\"name\": \"$stack-blue\"}" \
+        "$RANCHER_URL/projects/${projectId}/stacks/${stackId}/")
+
+    echo "response: $rename_status"
+    if [[ $rename_status != 200 ]]
+    then
+        "failed to renamed service"
+        exit 1
+    fi
 }
 
 function upgrade_stack(){
@@ -155,7 +163,8 @@ function wait_for_service_to_have_status() {
 }
 
 is_stack_exists=`$rancher_command --env $env inspect --type stack $stack | head -n1`
-echo "stack exists: $is_stack_exists\n"
+echo "stack exists: $is_stack_exists"
+echo ""
 if [[ $is_stack_exists != *"Not found"* ]]
 then
     check_stack_health
