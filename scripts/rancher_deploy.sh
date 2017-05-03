@@ -79,47 +79,17 @@ function upgrade_stack(){
         --env $env \
         --debug \
         --wait --wait-timeout $WAIT_TIMEOUT \
-        --wait-state "upgraded" \
         up \
+        --pull \
         --batch-size 1 \
         --stack $stack \
         --file $docker_compose_file \
         --rancher-file $rancher_compose_file \
-        --upgrade -p -d
+        --force-upgrade \
+        --confirm-upgrade -d
 
-    state_after_upgrade=`$rancher_command --env $env inspect --format '{{ .state}}' --type stack $stack | head -n1`
-    echo  "The state of service after upgrade is $state_after_upgrade"
-    case $state_after_upgrade in
-        "active")  exit 0
-                   ;;
-        "upgraded") finish_upgrade
-                   ;;
-        *)  echo "Service isnt responding. Exiting."
-            exit 1
-            ;;
-    esac
-}
-
-function finish_upgrade(){
-    health_status=`$rancher_command --environment $env inspect --format '{{ .healthState}}' --type $stack/$service | head -n1`
-    if [[ $health_status == "healthy" ]]
-        then
-            echo "Upgraded service successfully. Confirming Upgrade."
-            $rancher_command --environment $env --debug --wait --wait-state active --wait-timeout $WAIT_TIMEOUT up -s $stack -f $docker_compose_file --rancher-file $rancher_compose_file --confirm-upgrade -d
-            echo "Upgraded service successfully and confirmed."
-            wait_for_service_to_have_status "healthy" ".healthState"
-            exit 0
-        else
-            roll_back
-    fi
-}
-
-function roll_back(){
-    echo "Upgrade failed. Initiating rollback to the previous deployed version"
-    $rancher_command --environment $env --debug --wait --wait-state active --wait-timeout $WAIT_TIMEOUT up --batch-size 1 -s $stack -f $docker_compose_file --rancher-file $rancher_compose_file --rollback -d
-    wait_for_service_to_have_status "healthy" ".healthState"
-    echo "Upgrade failed. Rolled back to the previous deployed version"
-    exit 1
+     state_after_upgrade=`$rancher_command --env $env inspect --format '{{ .state}}' --type stack $stack | head -n1`
+     echo  "The state of service after upgrade is $state_after_upgrade"
 }
 
 function check_stack_health() {
@@ -135,8 +105,7 @@ function check_stack_health() {
 function confirm_upgrade_if_previous_upgrade_pending() {
     service_status=`$rancher_command --environment $env inspect --format '{{ .state}}' --type service $stack/$service | head -n1`
     echo  "The status of previous service upgrade is $service_status"
-    if [[ "$service_status" == "upgraded" ]]
-    then
+    if [[ "$service_status" == "upgraded" ]]; then
         echo "Previous Upgrade not completed. Confirming the previous Upgrade before continuing."
         $rancher_command --environment $env --debug --wait --wait-state active --wait-timeout $WAIT_TIMEOUT up -s $stack -f $docker_compose_file --rancher-file $rancher_compose_file --confirm-upgrade -d
         wait_for_service_to_have_status "healthy" ".healthState"
