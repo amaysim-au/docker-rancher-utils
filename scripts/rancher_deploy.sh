@@ -79,6 +79,7 @@ function upgrade_stack(){
         --env $env \
         --debug \
         --wait --wait-timeout $WAIT_TIMEOUT \
+        --wait-state active \
         up \
         --pull \
         --batch-size 1 \
@@ -87,48 +88,18 @@ function upgrade_stack(){
         --rancher-file $rancher_compose_file \
         --force-upgrade \
         --confirm-upgrade -d
-
-     state_after_upgrade=`$rancher_command --env $env inspect --format '{{ .state}}' --type stack $stack | head -n1`
-     echo  "The state of service after upgrade is $state_after_upgrade"
 }
 
 function check_stack_health() {
     health_status=`$rancher_command --environment $env inspect --format '{{ .healthState}}' --type stack $stack | head -n1`
+    service_status=`$rancher_command --environment $env inspect --format '{{ .state}}' --type service $stack/$service | head -n1`
     echo  "Current health status of stack: $health_status"
+    echo "Current state of service: $service_status"
     if [[ "$health_status" != "healthy" ]]
         then
         echo  "Stack is not in a healthy state. Exiting."
         exit 1
     fi
-}
-
-function confirm_upgrade_if_previous_upgrade_pending() {
-    service_status=`$rancher_command --environment $env inspect --format '{{ .state}}' --type service $stack/$service | head -n1`
-    echo  "The status of previous service upgrade is $service_status"
-    if [[ "$service_status" == "upgraded" ]]; then
-        echo "Previous Upgrade not completed. Confirming the previous Upgrade before continuing."
-        $rancher_command --environment $env --debug --wait --wait-state active --wait-timeout $WAIT_TIMEOUT up -s $stack -f $docker_compose_file --rancher-file $rancher_compose_file --confirm-upgrade -d
-        wait_for_service_to_have_status "healthy" ".healthState"
-    fi
-}
-
-function wait_for_service_to_have_status() {
-    status_type=$1
-    status_tag=$2
-    status=`$rancher_command --environment $env inspect --format '{{ '"$status_tag"' }}' --type service $stack/$service | head -n1`
-    echo "Waiting for service to be $status_type. Current status: $status"
-    COUNT=0
-    while [ $status != $status_type ]; do
-        if [ $COUNT -gt $NUMBER_OF_TIMES_TO_LOOP ]; then
-            echo "Error: Give up waiting for service status to be $status_type. Please investigate. Exiting."
-            exit 1;
-        fi
-        COUNT=$[$COUNT + 1]
-        echo "Waiting for service to be $status_type. Current status: $status"
-        sleep 10
-        status=`$rancher_command --environment $env inspect --format '{{ '"$status_tag"' }}' $stack/$service | head -n1`
-    done
-    echo "Service is now $status."
 }
 
 stack_exists=`$rancher_command --env $env inspect --type stack $stack | head -n1`
@@ -138,7 +109,7 @@ if [[ $stack_exists == "" ]]; then
 	exit 1
 elif [[ $stack_exists != *"Not found"* ]]; then
     check_stack_health
-    confirm_upgrade_if_previous_upgrade_pending
 fi
 upgrade_stack
+check_stack_health
 
