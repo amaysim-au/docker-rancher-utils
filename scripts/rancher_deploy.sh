@@ -19,8 +19,7 @@ service=test-service
 rancher_command=rancher
 docker_compose_file=deployment/docker-compose.yml
 rancher_compose_file=deployment/rancher-compose.yml
-WAIT_TIMEOUT=120
-NUMBER_OF_TIMES_TO_LOOP=$(( $WAIT_TIMEOUT/10 ))
+rancher_wait_timeout=360
 
 while getopts ':e:s:c:r:w:d:n:h' option; do
     case "$option" in
@@ -39,8 +38,7 @@ while getopts ':e:s:c:r:w:d:n:h' option; do
             ;;
         n)  rancher_compose_file=$OPTARG
             ;;
-        w)  WAIT_TIMEOUT=$OPTARG
-            NUMBER_OF_TIMES_TO_LOOP=$(( $WAIT_TIMEOUT/10 ))
+        w)  rancher_wait_timeout=$OPTARG
             ;;
         :)  printf "missing argument for -%s\n" "$OPTARG" >&2
             echo "$usage" >&2
@@ -53,6 +51,29 @@ while getopts ':e:s:c:r:w:d:n:h' option; do
     esac
 done
 shift $((OPTIND - 1))
+
+function ensure_upgrade_confirmation(){
+   	echo "Confirming previous unconfirmed Stack Upgrade."
+	$rancher_command \
+		--environment $env --debug --wait --wait-state healthy --wait-timeout $rancher_wait_timeout \
+		up \
+		-s $stack -f $docker_compose_file --rancher-file $rancher_compose_file --confirm-upgrade -d
+	echo "Stack Upgrade successfully reconfirmed."
+}
+
+function check_stack_health() {
+    health_status=`$rancher_command --environment $env inspect --format '{{ .healthState}}' --type stack $stack | head -n1`
+    service_state=`$rancher_command --environment $env inspect --format '{{ .state}}' --type service $stack/$service | head -n1`
+    echo  "Current health status of stack: $health_status"
+    echo "Current state of service: $service_state"
+    if [[ "$health_status" != "healthy" ]]; then
+        echo  "Stack is not in a healthy state. Exiting."
+        exit 1
+    fi
+    if [[ $service_state == "upgraded" ]]; then
+    	ensure_upgrade_confirmation
+    fi
+}
 
 function rename_stack() {
     projectId=`$rancher_command --env $env inspect --format '{{ .id}}' --type project $env`
@@ -78,8 +99,8 @@ function upgrade_stack(){
     $rancher_command \
         --env $env \
         --debug \
-        --wait --wait-timeout $WAIT_TIMEOUT \
-        --wait-state active \
+        --wait --wait-timeout $rancher_wait_timeout \
+        --wait-state healthy \
         up \
         --pull \
         --batch-size 1 \
@@ -90,18 +111,6 @@ function upgrade_stack(){
         --confirm-upgrade -d
 }
 
-function check_stack_health() {
-    health_status=`$rancher_command --environment $env inspect --format '{{ .healthState}}' --type stack $stack | head -n1`
-    service_status=`$rancher_command --environment $env inspect --format '{{ .state}}' --type service $stack/$service | head -n1`
-    echo  "Current health status of stack: $health_status"
-    echo "Current state of service: $service_status"
-    if [[ "$health_status" != "healthy" ]]
-        then
-        echo  "Stack is not in a healthy state. Exiting."
-        exit 1
-    fi
-}
-
 stack_exists=`$rancher_command --env $env inspect --type stack $stack | head -n1`
 echo "stack exists: $stack_exists"
 if [[ $stack_exists == "" ]]; then
@@ -109,7 +118,9 @@ if [[ $stack_exists == "" ]]; then
 	exit 1
 elif [[ $stack_exists != *"Not found"* ]]; then
     check_stack_health
+    upgrade_stack
+    check_stack_health
+    exit 0
 fi
-upgrade_stack
-check_stack_health
+
 
