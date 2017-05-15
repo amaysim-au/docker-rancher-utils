@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+source `pwd`/scripts/libs/_rancher.sh
+
 usage="$(basename "$0") [-h] [-e ENVIRONMENT] [-s STACK] [-c SERVICE] [-r RANCHER_COMMAND] [-d DOCKER_COMPOSE_FILE] [-n RANCHER_COMPOSE_FILE] [-w WAIT_TIME_SECS] -- script to upgrade and deploy containers in the given environment.
 Make sure that you have rancher environment options set and rancher cli installed before running the script.
 
@@ -80,6 +82,8 @@ function rename_stack() {
     stackId=`$rancher_command --env $env inspect --format '{{ .id}}' --type stack $stack`
     echo "renaming stack $stack with id: $projectId in env $env with Id: $stackId"
 
+    echo ""
+
     rename_status=$(curl -o /dev/null -s -w "%{http_code}\n" -u "$RANCHER_ACCESS_KEY:$RANCHER_SECRET_KEY" \
         -X PUT \
         -H "Content-Type: application/json" \
@@ -113,13 +117,21 @@ function upgrade_stack(){
 
 stack_exists=`$rancher_command --env $env inspect --type stack $stack | head -n1`
 echo "stack exists: $stack_exists"
+
+bluegreen=${HEALTHCHECKURL_GREEN?"false"}
+echo "bluegreen: $bluegreen"
+
 if [[ $stack_exists == "" ]]; then
 	echo "empty result - not authorized to call Rancher API"
 	exit 1
 elif [[ $stack_exists != *"Not found"* ]]; then
-    check_stack_health
+    check_stack_health ${HEALTHCHECKURL}
+    if [[ $bluegreen != "false" ]]; then
+        rename_stack
+    fi
     upgrade_stack
-    check_stack_health
+    check_stack_health    
+
     exit 0
 fi
 
