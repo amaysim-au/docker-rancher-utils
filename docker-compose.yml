@@ -2,10 +2,10 @@ version: '2.1'
 services:
   shell:
     build: .
-    command: shell
     env_file: .env
     volumes:
-      - .:/opt/app
+      - ./scripts:/scripts:ro
+      - .:/opt/app:rw
     working_dir: /opt/app
     command: bash
 
