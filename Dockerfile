@@ -8,4 +8,5 @@ RUN apk --no-cache update && \
 RUN wget -qO- $RANCHER_CLI_URL | tar xvJ && \
 	mv ./rancher-v0.6.0-rc3/rancher /usr/local/bin/rancher
 ADD scripts /scripts
+RUN chmod a+x /scripts/*.sh && chmod a+x /scripts/libs/*.sh
 CMD ["rancher", "--version"]
