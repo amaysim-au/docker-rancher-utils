@@ -11,7 +11,7 @@ rancherUpgrade:
 		-w $(RANCHER_CHECK_TIMEOUT)
 
 healthCheck:
-	timeout $(RANCHER_CHECK_TIMEOUT) /scripts/rancher_ping_url.sh ${HEALTHCHEKCURL}
+	timeout $(RANCHER_CHECK_TIMEOUT) /scripts/rancher_ping_url.sh $(HEALTHCHEKCURL)
 
 healthCheckGreen:
-	timeout $(RANCHER_CHECK_TIMEOUT) /scripts/rancher_ping_url.sh ${HEALTHCHEKCURL_GREEN}	
+	timeout $(RANCHER_CHECK_TIMEOUT) /scripts/rancher_ping_url.sh $(HEALTHCHEKCURL_GREEN)
