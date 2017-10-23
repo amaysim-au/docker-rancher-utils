@@ -1,4 +1,6 @@
-test-service:
-  restart: always
-  tty: false
-  image: nginx:latest
+version: '2'
+services:
+  test-service:
+    restart: always
+    tty: false
+    image: quay.io/assemblyline/ok:latest

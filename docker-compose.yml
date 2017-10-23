@@ -15,10 +15,3 @@ services:
     volumes:
       - .:/opt/app
     working_dir: /opt/app
-
-networks:
-  default:
-    driver: bridge
-    ipam:
-      config:
-      - subnet: ${DOCKER_COMPOSE_IP_RANGE}

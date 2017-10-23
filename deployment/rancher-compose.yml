@@ -1,2 +1,16 @@
-test-service:
-  scale: 1
+version: '2'
+services:
+  test-service:
+    scale: 1
+    start_on_create: true
+    health_check:
+      response_timeout: 2000
+      healthy_threshold: 2
+      port: 8888
+      unhealthy_threshold: 3
+      initializing_timeout: 60000
+      interval: 2000
+      strategy: recreate
+      reinitializing_timeout: 60000
+    upgrade_strategy:
+      start_first: true

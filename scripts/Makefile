@@ -1,9 +1,19 @@
 RANCHER_CHECK_TIMEOUT ?= 360
 
-deploy: rancherUpgrade healthCheck
+deploy: rancherUpgrade
 
 rancherUpgrade:
-	/scripts/rancher_deploy.sh -e $(RANCHER_ENVIRONMENT) \
+	/scripts/rancher_deploy.sh -a deploy \
+		-e $(RANCHER_ENVIRONMENT) \
+		-s $(RANCHER_STACK) \
+		-c $(RANCHER_SERVICE) \
+		-d $(DOCKER_COMPOSE) \
+		-n $(RANCHER_COMPOSE) \
+		-w $(RANCHER_CHECK_TIMEOUT)
+
+cutover:
+	/scripts/rancher_deploy.sh -a cutover \
+		-e $(RANCHER_ENVIRONMENT) \
 		-s $(RANCHER_STACK) \
 		-c $(RANCHER_SERVICE) \
 		-d $(DOCKER_COMPOSE) \

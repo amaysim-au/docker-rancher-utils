@@ -2,11 +2,12 @@
 
 source /scripts/libs/_rancher.sh
 
-usage="$(basename "$0") [-h] [-e ENVIRONMENT] [-s STACK] [-c SERVICE] [-r RANCHER_COMMAND] [-d DOCKER_COMPOSE_FILE] [-n RANCHER_COMPOSE_FILE] [-w WAIT_TIME_SECS] -- script to upgrade and deploy containers in the given environment.
+usage="$(basename "$0") [-h] [-a ACTION] [-e ENVIRONMENT] [-s STACK] [-c SERVICE] [-r RANCHER_COMMAND] [-d DOCKER_COMPOSE_FILE] [-n RANCHER_COMPOSE_FILE] [-w WAIT_TIME_SECS] -- script to cutover rancher blue-green deployments.
 Make sure that you have rancher environment options set and rancher cli installed before running the script.
 
 where:
 -h  show this help text
+-a  set the action to perform: deploy, cutover or rollback (default: deploy)
 -e  set the rancher environment (default: Dev)
 -s  set the rancher stack (default: QA)
 -c  set the rancher service (default: poseidon-app)
@@ -15,15 +16,20 @@ where:
 -n  set the rancher-compose file (default: deployment/rancher-compose.yml)
 -w  set the wait time in seconds (default: 120)"
 
+action=deploy
 env=Dev
 stack=test-stack
 service=test-service
-rancher_command=rancher
-docker_compose_file=deployment/docker-compose.yml
-rancher_compose_file=deployment/rancher-compose.yml
 rancher_wait_timeout=360
 
-while getopts ':e:s:c:r:w:d:n:h' option; do
+docker_compose_file=deployment/docker-compose.yml
+rancher_compose_file=deployment/rancher-compose.yml
+
+lbconfig_file=deployment/lbconfig.json
+lbconfig_green_file=deployment/lbconfig-green.json
+
+
+while getopts ':a:e:s:c:r:w:d:n:h' option; do
     case "$option" in
         h)  echo "$usage"
             exit
@@ -42,6 +48,8 @@ while getopts ':e:s:c:r:w:d:n:h' option; do
             ;;
         w)  rancher_wait_timeout=$OPTARG
             ;;
+        a)  action=$OPTARG
+            ;;
         :)  printf "missing argument for -%s\n" "$OPTARG" >&2
             echo "$usage" >&2
             exit 1
@@ -54,85 +62,82 @@ while getopts ':e:s:c:r:w:d:n:h' option; do
 done
 shift $((OPTIND - 1))
 
-function ensure_upgrade_confirmation(){
-   	echo "Confirming previous unconfirmed Stack Upgrade."
-	$rancher_command \
-		--environment $env --debug --wait --wait-state healthy --wait-timeout $rancher_wait_timeout \
-		up \
-		-s $stack -f $docker_compose_file --rancher-file $rancher_compose_file --confirm-upgrade -d
-	echo "Stack Upgrade successfully reconfirmed."
-}
-
-function check_stack_health() {
-    health_status=`$rancher_command --environment $env inspect --format '{{ .healthState}}' --type stack $stack | head -n1`
-    service_state=`$rancher_command --environment $env inspect --format '{{ .state}}' --type service $stack/$service | head -n1`
-    echo  "Current health status of stack: $health_status"
-    echo "Current state of service: $service_state"
-    if [[ "$health_status" != "healthy" ]]; then
-        echo  "Stack is not in a healthy state. Exiting."
-        exit 1
-    fi
-    if [[ $service_state == "upgraded" ]]; then
-    	ensure_upgrade_confirmation
-    fi
-}
-
-function rename_stack() {
-    projectId=`$rancher_command --env $env inspect --format '{{ .id}}' --type project $env`
-    stackId=`$rancher_command --env $env inspect --format '{{ .id}}' --type stack $stack`
-    echo "renaming stack $stack with id: $projectId in env $env with Id: $stackId"
-
-    echo ""
-
-    rename_status=$(curl -o /dev/null -s -w "%{http_code}\n" -u "$RANCHER_ACCESS_KEY:$RANCHER_SECRET_KEY" \
-        -X PUT \
-        -H "Content-Type: application/json" \
-        -d "{\"name\": \"$stack-blue\"}" \
-        "$RANCHER_URL/projects/${projectId}/stacks/${stackId}/")
-
-    echo "response: $rename_status"
-    if [[ $rename_status != 200 ]]
-    then
-        "failed to renamed service"
-        exit 1
-    fi
-}
-
-function upgrade_stack(){
-    echo  "Upgrading $stack in $env"
-    $rancher_command \
-        --env $env \
-        --debug \
-        --wait --wait-timeout $rancher_wait_timeout \
-        --wait-state healthy \
-        up \
-        --pull \
-        --batch-size 1 \
-        --stack $stack \
-        --file $docker_compose_file \
-        --rancher-file $rancher_compose_file \
-        --force-upgrade \
-        --confirm-upgrade -d
-}
-
 stack_exists=`$rancher_command --env $env inspect --type stack $stack | head -n1`
-echo "stack exists: $stack_exists"
-
-is_bluegreen=${HEALTHCHECKURL_GREEN:-"false"}
-echo "blue green: $is_bluegreen"
+echo "Stack exists: $stack_exists"
 
 if [[ $stack_exists == "" ]]; then
-	echo "empty result - not authorized to call Rancher API"
-	exit 1
-elif [[ $stack_exists != *"Not found"* ]]; then
-    check_stack_health ${HEALTHCHECKURL}
-    if [[ ${is_bluegreen} != "false" ]]; then
-        rename_stack
-    fi
-    upgrade_stack
-    check_stack_health    
-
-    exit 0
+    echo "empty result - not authorized to call Rancher API"
+    exit 1
 fi
 
+is_bluegreen=${HEALTHCHECKURL_GREEN:-"false"}
+echo "Is blue green?: $is_bluegreen"
 
+# RANCHER_PROJECT_ID=`$rancher_command --env $env env -q`
+# echo "rancher project id: $RANCHER_PROJECT_ID"
+#
+# RANCHER_LB_ID=`$rancher_cli --action=get-svc-id --host=haproxy-https.Infrastructure`
+# echo "rancher loadbalancer id: $RANCHER_LB_ID"
+#
+# RANCHER_SERVICE_ID=`$rancher_cli --action=get-svc-id --host=$service.$stack`
+# echo "rancher service id: $RANCHER_SERVICE_ID"
+
+generate_deployment_files
+
+if [[ $stack_exists == *"Not found"* ]]; then
+    echo "stack not found"
+    exit 1
+fi
+
+if [[ $action == "deploy" ]]; then
+
+    confirm_upgrade
+
+    check_stack_health
+
+    if [[ ${is_bluegreen} != "false" ]]; then
+        # Is Blue Green deployment
+
+        # Rename $stack to $stack-blue (live)
+        rename_stack "$stack-blue"
+
+        # This will create the $stack
+        upgrade_stack
+
+        # Put the new stack in the green load balancer
+        update_label "lb" "$service-green"
+
+        check_stack_health
+
+        check_health $HEALTHCHECKURL_GREEN
+    else
+
+        upgrade_stack
+
+        check_stack_health
+
+        check_health $HEALTHCHECKURL
+    fi
+
+elif [[ $action == "cutover" ]]; then
+
+    # Updating label on $stack so it start serving requests
+    update_label "lb" "$service"
+
+    # Waiting 30 seconds for the service to stabilise
+    echo "Waiting 30 seconds for service"
+    sleep 30
+
+    # Saving stack name (now live)
+    stack_green=$stack
+
+    # Disabling old stack (blue)
+    stack="$stack-blue"
+    update_label "lb" "$service-green"
+
+    # Rename blue to delete
+    rename_stack "$stack_green-to-delete"
+
+fi
+
+exit 0
