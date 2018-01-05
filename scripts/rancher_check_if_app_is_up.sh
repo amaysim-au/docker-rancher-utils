@@ -1,19 +1,36 @@
 #!/bin/bash -e
 
-ISOK=`curl -i -s ${HEALTHCHECKURL} --max-time 5 | head -1 | grep "200 OK" | wc -l`
+ISOK=`curl -i -s ${HEALTHCHECKURL} --max-time 5 | head -1 | grep "200" | wc -l`
 
-COUNT=0
-while [ $ISOK -eq 0 ]; do
-  echo "Waiting on Application ..."
+SHORT_SLEEP=1
+LONG_SLEEP=10
+FAILURE_COUNT=0
+SUCCESS_COUNT=0
+MIN_SUCCESS_COUNT=10
 
-  COUNT=$[$COUNT + 1]
-  if [ $COUNT -gt 90 ]; then
+while [ $SUCCESS_COUNT -lt $MIN_SUCCESS_COUNT ]; do
+
+  if [ $FAILURE_COUNT -gt 90 ]; then
     echo "Error: Application healthcheck timeout: ${HEALTHCHECKURL}"
     exit 1;
   fi
 
-  ISOK=`curl -i -s ${HEALTHCHECKURL} --max-time 5 | head -1 | grep "200 OK" | wc -l`
-  sleep 10
+  ISOK=`curl -i -s ${HEALTHCHECKURL} --max-time 5 | head -1 | grep "200" | wc -l`
+
+  if [ $ISOK -gt 0 ]; then
+    echo "Successful response from: ${HEALTHCHECKURL}"
+    SUCCESS_COUNT=$[$SUCCESS_COUNT + 1]
+    echo "Consecutive Successful responses so far: ${SUCCESS_COUNT}"
+    sleep $SHORT_SLEEP
+  else
+    echo "Error: Application healthcheck did not respond with HTTP 200: ${HEALTHCHECKURL} , resetting success count to 0"
+    SUCCESS_COUNT=0
+    FAILURE_COUNT=$[$FAILURE_COUNT + 1]
+    echo "Number of failed curl attempts so far: ${FAILURE_COUNT}"
+    echo "Waiting on Application for ${LONG_SLEEP} secs before attempting the next curl ..."
+    sleep $LONG_SLEEP
+  fi
+
 done
 
 echo "Application started"
