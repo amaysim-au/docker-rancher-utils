@@ -7,10 +7,11 @@ LONG_SLEEP=10
 FAILURE_COUNT=0
 SUCCESS_COUNT=0
 MIN_SUCCESS_COUNT=10
+MAX_FAILURE_COUNT=90
 
 while [ $SUCCESS_COUNT -lt $MIN_SUCCESS_COUNT ]; do
 
-  if [ $FAILURE_COUNT -gt 90 ]; then
+  if [ $FAILURE_COUNT -gt $MAX_FAILURE_COUNT ]; then
     echo "Error: Application healthcheck timeout: ${HEALTHCHECKURL}"
     exit 1;
   fi
