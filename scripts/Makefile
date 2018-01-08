@@ -1,4 +1,4 @@
-RANCHER_CHECK_TIMEOUT ?= 200
+RANCHER_CHECK_TIMEOUT ?= 600
 
 deploy:
 	/scripts/rancher_deploy.sh -e $(RANCHER_ENVIRONMENT) \
