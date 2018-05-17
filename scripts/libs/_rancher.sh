@@ -17,15 +17,15 @@ MAX_FAILURE_COUNT=90
     exit 1;
   fi
 
-  ISOK=`curl -i -s $health_check_url --max-time 5 | head -1 | grep "200" | wc -l`
+  STATUS=`curl -i -s $health_check_url --max-time 5 | head -1 | grep -Eo "\d{3}"`
 
-  if [ $ISOK -gt 0 ]; then
+  if [ $STATUS = "200" ]; then
     echo "Successful response from: $health_check_url"
     SUCCESS_COUNT=$[$SUCCESS_COUNT + 1]
     echo "Consecutive Successful responses so far: ${SUCCESS_COUNT}"
     sleep $SHORT_SLEEP
   else
-    echo "Error: Application healthcheck did not respond with HTTP 200: $health_check_url , resetting success count to 0"
+    echo "Error: Application healthcheck did not respond with HTTP 200: $health_check_url [response code: ${STATUS}], resetting success count to 0"
     SUCCESS_COUNT=0
     FAILURE_COUNT=$[$FAILURE_COUNT + 1]
     echo "Number of failed curl attempts so far: ${FAILURE_COUNT}"
