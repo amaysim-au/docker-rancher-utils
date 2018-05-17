@@ -9,6 +9,7 @@ function check_health() {
   SUCCESS_COUNT=0
   MIN_SUCCESS_COUNT=10
   MAX_FAILURE_COUNT=90
+  STATUS="NOT PROCESSED YET"
 
   while [ $SUCCESS_COUNT -lt $MIN_SUCCESS_COUNT ]; do
 
@@ -17,9 +18,9 @@ function check_health() {
       exit 1;
     fi
 
-    STATUS=`curl -i -s $health_check_url --max-time 5 | head -1 | grep -Eo "\d{3}"`
+    STATUS=`curl -i -s $health_check_url --max-time 5 | head -1 | grep -Eo "\d{3}" || true`
 
-    if [ $STATUS = "200" ]; then
+    if [ "$STATUS" = "200" ]; then
       echo "Successful response from: $health_check_url"
       SUCCESS_COUNT=$[$SUCCESS_COUNT + 1]
       echo "Consecutive Successful responses so far: ${SUCCESS_COUNT}"
