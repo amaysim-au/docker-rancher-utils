@@ -1,7 +1,5 @@
 #!/bin/bash -e
 
-ISOK=`curl -i -s ${HEALTHCHECKURL} --max-time 5 | head -1 | grep "200" | wc -l`
-
 SHORT_SLEEP=1
 LONG_SLEEP=10
 FAILURE_COUNT=0
@@ -16,15 +14,15 @@ while [ $SUCCESS_COUNT -lt $MIN_SUCCESS_COUNT ]; do
     exit 1;
   fi
 
-  ISOK=`curl -i -s ${HEALTHCHECKURL} --max-time 5 | head -1 | grep "200" | wc -l`
+  STATUS=$(curl -i -s ${HEALTHCHECKURL} --max-time 5 | head -1 | grep -Eo "\d{3}")
 
-  if [ $ISOK -gt 0 ]; then
+  if [ $STATUS = "200" ]; then
     echo "Successful response from: ${HEALTHCHECKURL}"
     SUCCESS_COUNT=$[$SUCCESS_COUNT + 1]
     echo "Consecutive Successful responses so far: ${SUCCESS_COUNT}"
     sleep $SHORT_SLEEP
   else
-    echo "Error: Application healthcheck did not respond with HTTP 200: ${HEALTHCHECKURL} , resetting success count to 0"
+    echo "Error: Application healthcheck did not respond with HTTP 200: ${HEALTHCHECKURL} [$STATUS], resetting success count to 0"
     SUCCESS_COUNT=0
     FAILURE_COUNT=$[$FAILURE_COUNT + 1]
     echo "Number of failed curl attempts so far: ${FAILURE_COUNT}"
