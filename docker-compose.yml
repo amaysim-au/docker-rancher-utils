@@ -10,7 +10,7 @@ services:
     command: bash
 
   rancher:
-    image: amaysim/rancher-utils:1.2.1
+    image: amaysim/rancher-utils:1.2.5
     env_file: .env
     volumes:
       - .:/opt/app

@@ -1,4 +1,4 @@
-VERSION = 1.0.0
+VERSION = 1.2.5
 IMAGE_NAME ?= amaysim/rancher-utils:$(VERSION)
 TAG = v$(VERSION)
 
